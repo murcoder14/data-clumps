@@ -2,63 +2,89 @@ package org.muralis.batching.validator;
 
 import io.vavr.collection.Seq;
 import io.vavr.control.Validation;
+import org.muralis.batching.validator.Validatable;
+import org.muralis.batching.model.Address;
+import org.muralis.batching.model.Beneficiary;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
-import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 
-import static io.vavr.API.Invalid;
-import static io.vavr.API.Valid;
-
+/**
+ * A composite validator that orchestrates the validation of {@link Validatable} objects.
+ * This validator can validate a main object and recursively validate any fields that are also
+ * {@link Validatable} (e.g., a Beneficiary's Address) or collections of {@link Validatable} objects
+ * (e.g., a Beneficiary's dependents).
+ *
+ * @author T Murali
+ * @version 1.0
+ */
 public class CompositeValidator implements Validator<Validatable> {
 
     private final Map<Class<? extends Validatable>, Validator<?>> validatorMap;
 
+    /**
+     * Constructs a new CompositeValidator with a map of validators.
+     *
+     * @param validatorMap A map where keys are {@link Validatable} classes and values are their corresponding {@link Validator} instances.
+     */
     public CompositeValidator(Map<Class<? extends Validatable>, Validator<?>> validatorMap) {
         this.validatorMap = validatorMap;
     }
 
+    /**
+     * Validates a {@link Validatable} object by applying the appropriate validator from the map
+     * and then recursively validating its fields.
+     *
+     * @param validatable The object to validate.
+     * @return A {@link Validation} instance containing either a sequence of all found errors or the valid object.
+     */
     @Override
-    public Validation<Seq<String>, Validatable> validate(Validatable object) {
-        java.util.List<String> errors = new ArrayList<>();
-        validateRecursively(object, errors);
-        if (errors.isEmpty()) {
-            return Valid(object);
-        } else {
-            return Invalid(io.vavr.collection.List.ofAll(errors));
-        }
-    }
+    public Validation<Seq<String>, Validatable> validate(Validatable validatable) {
+        List<String> allErrors = new ArrayList<>();
 
-    @SuppressWarnings("unchecked")
-    private void validateRecursively(Validatable object, java.util.List<String> errors) {
-        if (object == null) {
-            return;
+        // Step 1: Validate the main object itself
+        Validator<Validatable> mainValidator = (Validator<Validatable>) validatorMap.get(validatable.getClass());
+        if (mainValidator != null) {
+            mainValidator.validate(validatable).fold(
+                    errors -> allErrors.addAll(errors.toJavaList()),
+                    valid -> null
+            );
         }
 
-        // Apply the validator for the object itself
-        Validator<Validatable> validator = (Validator<Validatable>) validatorMap.get(object.getClass());
-        if (validator != null) {
-            validator.validate(object).mapError(e -> errors.addAll(e.toJavaList()));
-        }
-
-        // Recursively validate nested fields
-        for (Field field : object.getClass().getDeclaredFields()) {
-            field.setAccessible(true);
+        // Step 2: Recursively validate fields
+        for (Field field : validatable.getClass().getDeclaredFields()) {
             try {
-                Object fieldValue = field.get(object);
+                field.setAccessible(true);
+                Object fieldValue = field.get(validatable);
+
                 if (fieldValue instanceof Validatable) {
-                    validateRecursively((Validatable) fieldValue, errors);
-                } else if (fieldValue instanceof Collection) {
-                    for (Object item : (Collection<?>) fieldValue) {
+                    validate( (Validatable) fieldValue).fold(
+                            errors -> allErrors.addAll(errors.toJavaList()),
+                            valid -> null
+                    );
+                }
+
+                if (fieldValue instanceof List) {
+                    for (Object item : (List<?>) fieldValue) {
                         if (item instanceof Validatable) {
-                            validateRecursively((Validatable) item, errors);
+                            validate((Validatable) item).fold(
+                                    errors -> allErrors.addAll(errors.toJavaList()),
+                                    valid -> null
+                            );
                         }
                     }
                 }
             } catch (IllegalAccessException e) {
-                errors.add("Error accessing field: " + field.getName());
+                // Handle exception, e.g., log it
             }
+        }
+
+        if (allErrors.isEmpty()) {
+            return Validation.valid(validatable);
+        } else {
+            return Validation.invalid(io.vavr.collection.List.ofAll(allErrors));
         }
     }
 }

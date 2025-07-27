@@ -16,15 +16,34 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * A Spring Batch {@link ItemReader} for reading customer data from a CSV file.
+ * This reader is initialized with a resource (the input file) and reads the entire
+ * file into a list of {@link Beneficiary} objects upon initialization. The {@link #read()}
+ * method then iterates over this list.
+ *
+ * @author T Murali
+ * @version 1.0
+ */
 public class CustomerFileReader implements ItemReader<Beneficiary>, InitializingBean {
 
     private Resource resource;
     private Iterator<Beneficiary> beneficiaryIterator;
 
+    /**
+     * Constructs a new CustomerFileReader with the given resource.
+     *
+     * @param resource the input file resource
+     */
     public CustomerFileReader(Resource resource) {
         this.resource = resource;
     }
 
+    /**
+     * Reads the next {@link Beneficiary} from the iterator.
+     *
+     * @return The next beneficiary, or null if the iterator is empty.
+     */
     @Override
     public Beneficiary read() {
         if (beneficiaryIterator != null && beneficiaryIterator.hasNext()) {
@@ -33,6 +52,13 @@ public class CustomerFileReader implements ItemReader<Beneficiary>, Initializing
         return null;
     }
 
+    /**
+     * Initializes the reader by reading all beneficiaries from the CSV file
+     * and populating an iterator. This method is called after the bean's properties
+     * have been set.
+     *
+     * @throws Exception if any error occurs during initialization
+     */
     @Override
     public void afterPropertiesSet() throws Exception {
         List<CSVRecord> records = parseFile();
@@ -40,6 +66,12 @@ public class CustomerFileReader implements ItemReader<Beneficiary>, Initializing
         this.beneficiaryIterator = beneficiaries.iterator();
     }
 
+    /**
+     * Parses the CSV file into a list of {@link CSVRecord} objects.
+     *
+     * @return The list of CSV records
+     * @throws Exception if any error occurs during parsing
+     */
     private List<CSVRecord> parseFile() throws Exception {
         List<CSVRecord> records = new ArrayList<>();
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(resource.getInputStream()))) {
@@ -57,6 +89,12 @@ public class CustomerFileReader implements ItemReader<Beneficiary>, Initializing
         return records;
     }
 
+    /**
+     * Transforms the list of {@link CSVRecord} objects into a list of {@link Beneficiary} objects.
+     *
+     * @param records The list of CSV records
+     * @return The list of beneficiaries
+     */
     private List<Beneficiary> transformToBeneficiaries(List<CSVRecord> records) {
         List<Beneficiary> beneficiaries = new ArrayList<>();
         if (records.isEmpty()) {
@@ -79,6 +117,12 @@ public class CustomerFileReader implements ItemReader<Beneficiary>, Initializing
         return beneficiaries;
     }
 
+    /**
+     * Creates a family of beneficiaries from the given list of {@link CSVRecord} objects.
+     *
+     * @param familyRecords The list of CSV records
+     * @return The family of beneficiaries
+     */
     private Beneficiary createFamily(List<CSVRecord> familyRecords) {
         CSVRecord primaryRecord = familyRecords.get(0);
         Beneficiary primary = buildBeneficiary(primaryRecord);
@@ -92,6 +136,12 @@ public class CustomerFileReader implements ItemReader<Beneficiary>, Initializing
         return primary;
     }
 
+    /**
+     * Builds a single beneficiary from the given {@link CSVRecord} object.
+     *
+     * @param record The CSV record
+     * @return The beneficiary
+     */
     private Beneficiary buildBeneficiary(CSVRecord record) {
         return Beneficiary.builder()
                 .personId(Long.parseLong(record.get(0)))
@@ -106,6 +156,12 @@ public class CustomerFileReader implements ItemReader<Beneficiary>, Initializing
                 .build();
     }
 
+    /**
+     * Extracts the person ID from the given {@link CSVRecord} object.
+     *
+     * @param record The CSV record
+     * @return The person ID
+     */
     private String getPersonIdFromRecord(CSVRecord record) {
         return record.get(0);
     }

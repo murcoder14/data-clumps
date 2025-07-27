@@ -1,0 +1,54 @@
+syntax = "proto3";
+
+package org.muralis.batching.grpc;
+
+option java_multiple_files = true;
+option java_package = "org.muralis.batching.grpc";
+
+// Represents a physical address.
+message AddressMessage {
+    string street = 1;
+    string city = 2;
+    string state = 3;
+    string zip = 4;
+}
+
+// Represents a beneficiary, who can also have dependents.
+message BeneficiaryMessage {
+    int64 personId = 1;
+    string firstName = 2;
+    string lastName = 3;
+    AddressMessage address = 4;
+    repeated BeneficiaryMessage dependents = 5;
+}
+
+// A wrapper for a valid beneficiary record.
+message ValidRecord {
+    BeneficiaryMessage beneficiary = 1;
+}
+
+// A wrapper for an invalid beneficiary record, including validation errors.
+message InvalidRecord {
+    BeneficiaryMessage beneficiary = 1;
+    repeated string errors = 2;
+}
+
+// A record that can be either valid or invalid.
+message Record {
+    oneof record_type {
+        ValidRecord valid_record = 1;
+        InvalidRecord invalid_record = 2;
+    }
+}
+
+// A summary returned by the server after the stream completes.
+message StreamSummary {
+    int32 valid_records_processed = 1;
+    int32 invalid_records_processed = 2;
+}
+
+// The gRPC service for streaming beneficiary records.
+service BeneficiaryStreamer {
+    // A client-streaming RPC to send records from the batch job to a server.
+    rpc StreamRecords(stream Record) returns (StreamSummary);
+}
