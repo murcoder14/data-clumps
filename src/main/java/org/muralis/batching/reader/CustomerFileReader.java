@@ -98,7 +98,7 @@ public class CustomerFileReader implements ItemReader<Beneficiary>, Initializing
                 .firstName(record.get(1))
                 .lastName(record.get(2))
                 .address(Address.builder()
-                        .address(record.get(3))
+                        .street(record.get(3))
                         .city(record.get(4))
                         .state(record.get(5))
                         .zip(record.get(6))

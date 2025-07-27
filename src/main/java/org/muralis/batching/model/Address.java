@@ -7,15 +7,16 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.muralis.batching.validator.Validatable;
 
 @XmlAccessorType(XmlAccessType.FIELD)
-@XmlType(propOrder = { "address", "city", "state", "zip" })
+@XmlType(propOrder = { "street", "city", "state", "zip" })
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Address {
-    private String address;
+public class Address implements Validatable {
+    private String street;
     private String city;
     private String state;
     private String zip;
